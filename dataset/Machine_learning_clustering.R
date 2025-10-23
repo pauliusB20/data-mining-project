@@ -1,3 +1,10 @@
+pkgs <- c(
+  "RKaggle","factoextra","ggplot2","ggfortify","cluster","ggpubr","klaR","dbscan"
+)
+to_install <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
+if (length(to_install) > 0) install.packages(to_install, quiet = TRUE)
+
+
 library(RKaggle)
 library(factoextra)
 library(ggplot2)
@@ -5,6 +12,7 @@ library(ggfortify)
 library(cluster)
 library(ggpubr)
 library(klaR)
+library(dbscan)
  
 
 data<-RKaggle::get_dataset("urvishahir/electric-vehicle-specifications-dataset-2025")
@@ -56,8 +64,8 @@ plot_1
 
 
 
-
-agglo.clust <- agnes(Principal_component_data,method="complete") ##Agglomerative hierarchical clustering 
+  
+agglo.clust <- agnes(Principal_component_data,method="complete",metric = "euclidean") ##Agglomerative hierarchical clustering 
 
 sub1<-cutree(agglo.clust,k=3) #Cut tree at 3 clusters
  
@@ -72,3 +80,18 @@ Plot_1_hierarchical ##Plotting clustering
 mean(silhouette(sub1,dist = dist(Principal_component_data))[,3]) ##Mean Silhoute coefficient for kmeans
 
 mean(silhouette(km.res$cluster,dist=dist(Principal_component_data))[,3]) ## Mean silhoutte coefficient for hierarchical
+
+
+sil=silhouette(sub1,dist = dist(Principal_component_data))[,3]
+mean(sapply(sil, function(x) x<0 ))*100
+
+
+##Checking Optics algorithm. 
+
+
+
+op1<-optics(Principal_component_data,eps=0.7,minPts=5)
+res_op <- extractDBSCAN(op1, eps_cl =0.8)
+
+plot(res_op)
+hullplot(Principal_component_data, res_op)

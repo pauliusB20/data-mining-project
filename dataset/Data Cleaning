@@ -1,0 +1,83 @@
+# Loading data -------
+data<-RKaggle::get_dataset("urvishahir/electric-vehicle-specifications-dataset-2025")
+summary(data)
+str(data)
+
+# Recoding towing capacity
+data$towing_capacity_kg[data$towing_capacity_kg == 0] <- NA 
+
+# Recoding cargo and towing capacity 
+library(dplyr)
+data <- data %>%
+  mutate(cargo_volume_l = case_when(cargo_volume_l == "10 Banana Boxes" ~ "526", #using manufacturers' data
+                                    cargo_volume_l == "13 Banana Boxes" ~ "645",
+                                    cargo_volume_l == "31 Banana Boxes" ~ "466",
+                                    TRUE ~ cargo_volume_l),
+         towing_capacity_kg = case_when(towing_capacity_kg == 0 ~ NA,
+                                        TRUE ~ towing_capacity_kg))  
+
+data$cargo_volume_l <- as.numeric(data$cargo_volume_l)
+
+# NA's ------
+NA_perc <- sapply(data, function(x) sum(is.na(x)) * 100 / length(x))
+
+sort(NA_perc, decreasing = TRUE) #number of cells - 42%, towing cap. - 28%
+
+# total number of NA's
+(sum(is.na(data)) / (nrow(data) * ncol(data))) * 100
+# 3.2% NA's
+
+
+# Mahalanoblis distance for outlier detection ----------
+library(mvoutlier)
+data_no_na <- na.omit(data[, !(names(data) %in% c("number_of_cells",
+                          "seats", "towing_capacity_kg"))])
+
+# variable "car seat" was removed due to low variance
+# tow capacity and cargo was removed due to NA's
+
+numeric_data_no_na <- data_no_na[, sapply(data_no_na, is.numeric)]
+
+results <- aq.plot(numeric_data_no_na)  # plots and flags outliers
+
+outliers_df <- data_no_na %>%
+  filter(results$outliers) # 160 obs. are outliers?
+
+# Box plots for all numeric variables --------
+#windows(width = 10, height = 6)
+par(mar = c(4, 4, 4, 2)) 
+boxplot(numeric_data_no_na[,-9],
+        las = 2,
+        cex.axis = 0.7)
+
+boxplot(numeric_data_no_na$length_mm)
+boxplot(numeric_data_no_na$cargo_volume_l) #skewed
+boxplot(data$top_speed_kmh)
+boxplot(data$acceleration_0_100_s)
+boxplot(data$battery_capacity_kWh)
+boxplot(data$number_of_cells) #very skewed data
+boxplot(data$torque_nm)
+
+
+# Character variables -----------
+table(data$car_body_type) 
+table(data$segment)
+table(data$drivetrain)
+
+table (data$fast_charge_port) #useless
+table(data$battery_type) #useless
+
+
+# Checking zero variance ------
+library(caret)
+zero_var <- nearZeroVar(numeric_data, saveMetrics = TRUE) # none
+zero_var
+
+
+# Normality check for Y (others)? ---------
+hist(data$efficiency_wh_per_km) #skewed
+
+# Q-Q plot
+qqnorm(data$efficiency_wh_per_km)
+qqline(data$efficiency_wh_per_km, col = "red")
+# transformation needed (for regression) - Box-Cox/log

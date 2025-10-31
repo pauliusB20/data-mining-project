@@ -1,0 +1,663 @@
+---
+title: "Project"
+output: html_document
+date: "2025-10-29"
+---
+
+```{r setup, include=TRUE, echo=TRUE,  message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+df  <- read.csv("electric.csv", sep = ",", stringsAsFactors = FALSE)
+ head(df)
+str(df)
+library(dplyr)
+
+df %>%
+  count(brand, sort = TRUE)
+
+
+library(dplyr)
+library(xtable)
+
+brand_counts <- df %>%
+  count(brand, sort = TRUE)
+
+
+print(xtable(brand_counts), include.rownames = FALSE)
+
+
+library(dplyr)
+
+n_unique_models <- n_distinct(df$model)
+n_unique_models
+
+library(dplyr)
+library(xtable)
+
+brand_counts <- df %>%
+  count(model, sort = TRUE)
+
+
+print(xtable(brand_counts), include.rownames = FALSE)
+
+
+n_distinct(df$model) == nrow(df)
+
+library(xtable)
+
+
+mean_speed <- mean(df$top_speed_kmh, na.rm = TRUE)
+var_speed  <- var(df$top_speed_kmh, na.rm = TRUE)
+
+
+speed_summary <- data.frame(
+  Statistic = c("Mean Top Speed (km/h)", "Variance of Top Speed"),
+  Value = c(round(mean_speed, 2), round(var_speed, 2))
+)
+print(speed_summary)
+
+
+
+
+mean_seats <- mean(df$seats, na.rm = TRUE)
+var_seats  <- var(df$seats, na.rm = TRUE)
+
+
+seats_summary <- data.frame(
+  Statistic = c("Mean Seats", "Variance of Seats"),
+  Value = c(round(mean_seats, 2), round(var_seats, 2))
+)
+print(seats_summary)
+
+
+
+
+
+df$towing_capacity_kg <- gsub(",", "", df$towing_capacity_kg)    
+df$towing_capacity_kg <- gsub("[^0-9.]", "", df$towing_capacity_kg)  
+df$towing_capacity_kg <- as.numeric(df$towing_capacity_kg)           
+
+
+summary(df$towing_capacity_kg)
+sum(!is.na(df$towing_capacity_kg))
+head(df$towing_capacity_kg, 10)
+
+
+mean_tow <- mean(df$towing_capacity_kg, na.rm = TRUE)
+var_tow  <- var(df$towing_capacity_kg, na.rm = TRUE)
+
+mean_tow
+var_tow
+
+
+library(xtable)
+library(dplyr)
+
+df$towing_capacity_kg <- gsub(",", "", df$towing_capacity_kg)     
+df$towing_capacity_kg <- gsub("[^0-9.]", "", df$towing_capacity_kg)  
+df$towing_capacity_kg <- as.numeric(df$towing_capacity_kg)
+
+
+
+
+clean_num <- function(x) {
+  x <- gsub("\u2013", "-", x)  
+  if (is.character(x)) {
+    is_range <- grepl("^[0-9.,]+\\s*[-]\\s*[0-9.,]+$", x)
+    if (any(is_range)) {
+      rng <- strcapture("^([0-9.,]+)\\s*-\\s*([0-9.,]+)$", x[is_range],
+                        proto = list(a=character(), b=character()))
+      a <- as.numeric(gsub(",", "", rng$a))
+      b <- as.numeric(gsub(",", "", rng$b))
+      x[is_range] <- (a + b) / 2
+    }
+  }
+  x <- gsub(",", "", x)
+  x <- gsub("[^0-9.]", "", x)
+  x[x == ""] <- NA
+  as.numeric(x)
+}
+
+cols_to_numeric <- c(
+  "battery_capacity_kWh","efficiency_wh_per_km","range_km",
+  "fast_charging_power_kw_dc","top_speed_kmh","acceleration_0_100_s",
+  "torque_nm","seats","number_of_cells","towing_capacity_kg",
+  "cargo_volume_l","length_mm","width_mm","height_mm"
+)
+
+for (nm in intersect(cols_to_numeric, names(df))) {
+  df[[nm]] <- clean_num(df[[nm]])
+}
+
+
+
+mean_battery <- mean(df$battery_capacity_kWh, na.rm = TRUE)
+var_battery  <- var(df$battery_capacity_kWh, na.rm = TRUE)
+
+mean_efficiency <- mean(df$efficiency_wh_per_km, na.rm = TRUE)
+var_efficiency  <- var(df$efficiency_wh_per_km, na.rm = TRUE)
+
+mean_range <- mean(df$range_km, na.rm = TRUE)
+var_range  <- var(df$range_km, na.rm = TRUE)
+
+mean_fastcharge <- mean(df$fast_charging_power_kw_dc, na.rm = TRUE)
+var_fastcharge  <- var(df$fast_charging_power_kw_dc, na.rm = TRUE)
+
+mean_speed <- mean(df$top_speed_kmh, na.rm = TRUE)
+var_speed  <- var(df$top_speed_kmh, na.rm = TRUE)
+
+mean_acceleration <- mean(df$acceleration_0_100_s, na.rm = TRUE)
+var_acceleration  <- var(df$acceleration_0_100_s, na.rm = TRUE)
+
+mean_torque <- mean(df$torque_nm, na.rm = TRUE)
+var_torque  <- var(df$torque_nm, na.rm = TRUE)
+
+mean_seats <- mean(df$seats, na.rm = TRUE)
+var_seats  <- var(df$seats, na.rm = TRUE)
+
+mean_cells <- mean(df$number_of_cells, na.rm = TRUE)
+var_cells  <- var(df$number_of_cells, na.rm = TRUE)
+
+mean_tow <- mean(df$towing_capacity_kg, na.rm = TRUE)
+var_tow  <- var(df$towing_capacity_kg, na.rm = TRUE)
+
+mean_cargo <- mean(df$cargo_volume_l, na.rm = TRUE)
+var_cargo  <- var(df$cargo_volume_l, na.rm = TRUE)
+
+mean_length <- mean(df$length_mm, na.rm = TRUE)
+var_length  <- var(df$length_mm, na.rm = TRUE)
+
+mean_width <- mean(df$width_mm, na.rm = TRUE)
+var_width  <- var(df$width_mm, na.rm = TRUE)
+
+mean_height <- mean(df$height_mm, na.rm = TRUE)
+var_height  <- var(df$height_mm, na.rm = TRUE)
+
+
+summary_combined <- data.frame(
+  Variable = c(
+    "Battery Capacity (kWh)",
+    "Efficiency (Wh/km)",
+    "Range (km)",
+    "Fast Charging Power (kW DC)",
+    "Top Speed (km/h)",
+    "Acceleration 0–100 (s)",
+    "Torque (Nm)",
+    "Seats",
+    "Number of Cells",
+    "Towing Capacity (kg)",
+    "Cargo Volume (L)",
+    "Length (mm)",
+    "Width (mm)",
+    "Height (mm)"
+  ),
+  Mean = c(
+    round(mean_battery, 2),
+    round(mean_efficiency, 2),
+    round(mean_range, 2),
+    round(mean_fastcharge, 2),
+    round(mean_speed, 2),
+    round(mean_acceleration, 2),
+    round(mean_torque, 2),
+    round(mean_seats, 2),
+    round(mean_cells, 2),
+    round(mean_tow, 2),
+    round(mean_cargo, 2),
+    round(mean_length, 2),
+    round(mean_width, 2),
+    round(mean_height, 2)
+  ),
+  Variance = c(
+    round(var_battery, 2),
+    round(var_efficiency, 2),
+    round(var_range, 2),
+    round(var_fastcharge, 2),
+    round(var_speed, 2),
+    round(var_acceleration, 2),
+    round(var_torque, 2),
+    round(var_seats, 2),
+    round(var_cells, 2),
+    round(var_tow, 2),
+    round(var_cargo, 2),
+    round(var_length, 2),
+    round(var_width, 2),
+    round(var_height, 2)
+  )
+)
+
+
+print(
+  xtable(
+    summary_combined,
+    caption = "Summary Statistics for Electric Vehicle Technical Characteristics",
+    label = "tab:ev_summary_full",
+    align = c("l", "l", "r", "r")
+  ),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+# --- Sanity check ---
+cat("Non-missing towing values:", sum(!is.na(df$towing_capacity_kg)), "\n")
+cat("Mean towing capacity:", mean_tow, "\n")
+
+
+
+
+
+
+library(dplyr)
+library(xtable)
+
+
+car_body_counts <- df %>%
+  count(car_body_type, sort = TRUE)
+
+print(
+  xtable(car_body_counts,
+         caption = "Frequency of Car Body Types",
+         label = "tab:car_body_type_counts",
+         align = c("l", "l", "r")),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+
+segment_counts <- df %>%
+  count(segment, sort = TRUE)
+
+print(
+  xtable(segment_counts,
+         caption = "Frequency of Vehicle Segments",
+         label = "tab:segment_counts",
+         align = c("l", "l", "r")),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+
+battery_counts <- df %>%
+  count(battery_type, sort = TRUE)
+
+print(
+  xtable(battery_counts,
+         caption = "Frequency of Battery Types",
+         label = "tab:battery_type_counts",
+         align = c("l", "l", "r")),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+library(dplyr)
+library(xtable)
+
+
+charge_port_counts <- df %>%
+  filter(!is.na(fast_charge_port) & fast_charge_port != "") %>%  # remove missing/blank entries
+  count(fast_charge_port, sort = TRUE)
+
+
+print(
+  xtable(
+    charge_port_counts,
+    caption = "Frequency of Fast Charge Port Types",
+    label = "tab:fast_charge_port_counts",
+    align = c("l", "l", "r")
+  ),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+
+
+drivetrain_counts <- df %>%
+  count(drivetrain, sort = TRUE)
+
+print(
+  xtable(drivetrain_counts,
+         caption = "Frequency of Drivetrain Types",
+         label = "tab:drivetrain_counts",
+         align = c("l", "l", "r")),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+
+
+library(dplyr)
+
+
+charge_port_counts <- df %>%
+  count(fast_charge_port, sort = TRUE)
+
+
+print(charge_port_counts)
+
+
+
+
+
+library(dplyr)
+library(xtable)
+
+
+n_unique_models <- df %>%
+  filter(!is.na(model) & model != "") %>%
+  summarise(unique_models = n_distinct(model)) %>%
+  pull(unique_models)
+
+
+model_summary <- data.frame(
+  Statistic = "Number of Unique Models",
+  Value = n_unique_models
+)
+
+
+print(
+  xtable(
+    model_summary,
+    caption = "Summary of Unique Electric Vehicle Models",
+    label = "tab:unique_models",
+    align = c("l", "l", "r")
+  ),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+
+
+length(unique(df$model))
+df %>% count(model)
+
+
+
+
+library(xtable)
+
+
+model_summary <- data.frame(
+  Statistic = "Number of Unique Models",
+  Value = 478
+)
+
+
+print(
+  xtable(
+    model_summary,
+    caption = "Summary of Unique Electric Vehicle Models",
+    label = "tab:unique_models",
+    align = c("l", "l", "r")
+  ),
+  include.rownames = FALSE,
+  booktabs = TRUE
+)
+
+
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r corrmatrix}
+
+
+
+knitr::opts_chunk$set(echo = TRUE)
+
+
+df <- read.csv("electric.csv", sep = ",", stringsAsFactors = FALSE)
+
+
+head(df)
+str(df)
+
+library(dplyr)
+
+
+numeric_df <- df[, sapply(df, is.numeric)]
+
+
+clean_names <- gsub("_", " ", names(numeric_df))        # replace underscores with spaces
+clean_names <- gsub("\\b([a-z])", "\\U\\1", clean_names, perl = TRUE)  # capitalize first letters
+names(numeric_df) <- clean_names
+
+cor_matrix <- cor(numeric_df, use = "pairwise.complete.obs")
+
+
+print(round(cor_matrix, 2))
+
+library(corrplot)
+corrplot(cor_matrix, method = "color", type = "upper",
+         tl.cex = 0.8, tl.col = "black", title = "Correlation Matrix of EV Features")
+
+
+
+
+pdf("correlation_matrix.pdf", width = 10, height = 8)
+corrplot(cor_matrix, method = "color", type = "upper",
+         tl.cex = 0.8, tl.col = "black",
+         title = "Correlation Matrix of EV Features", mar = c(0,0,2,0))
+dev.off()
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r Cleaneddata, echo=FALSE}
+
+
+df$towing_capacity_kg[df$towing_capacity_kg == 0] <- NA
+
+df <- df %>%
+  mutate(
+    cargo_volume_l = as.character(cargo_volume_l),   # ensure all treated as text
+    cargo_volume_l = case_when(
+      cargo_volume_l == "10 Banana Boxes" ~ "526",  # manufacturer data
+      cargo_volume_l == "13 Banana Boxes" ~ "645",
+      cargo_volume_l == "31 Banana Boxes" ~ "466",
+      TRUE ~ cargo_volume_l
+    ),
+    towing_capacity_kg = case_when(
+      towing_capacity_kg == 0 ~ NA,  # keep as before
+      TRUE ~ towing_capacity_kg
+    )
+  )
+
+
+df$cargo_volume_l <- as.numeric(df$cargo_volume_l)
+
+
+NA_perc <- sapply(df, function(x) sum(is.na(x)) * 100 / length(x))
+
+
+sort(NA_perc, decreasing = TRUE)
+
+
+(total_NA_perc <- (sum(is.na(df)) / (nrow(df) * ncol(df))) * 100)
+
+
+library(dplyr)
+library(tidyr)
+library(xtable)
+
+
+clean_num <- function(x) {
+  x <- gsub("\u2013|\u2212", "-", x, useBytes = TRUE)          # normalize dashes
+  if (is.character(x)) {
+    idx_dec_comma <- grepl(",", x) & !grepl("\\.", x)
+    x[idx_dec_comma] <- gsub(",", ".", x[idx_dec_comma], fixed = TRUE)
+    is_range <- grepl("^\\s*[0-9.,]+\\s*-\\s*[0-9.,]+\\s*$", x)
+    if (any(is_range, na.rm = TRUE)) {
+      rng <- strcapture("^\\s*([0-9.,]+)\\s*-\\s*([0-9.,]+)\\s*$",
+                        x[is_range],
+                        proto = list(a = character(), b = character()))
+      a <- as.numeric(gsub(",", "", rng$a))
+      b <- as.numeric(gsub(",", "", rng$b))
+      x[is_range] <- (a + b) / 2
+    }
+  }
+  x <- gsub(",", "", x)                     # thousands sep
+  x <- gsub("[^0-9.\\-]", "", x)            # strip units/spaces
+  x[x %in% c("", ".", "-", "-.", ".-")] <- NA
+  suppressWarnings(as.numeric(x))
+}
+
+
+cols_to_numeric <- c(
+  "battery_capacity_kWh","efficiency_wh_per_km","range_km",
+  "fast_charging_power_kw_dc","top_speed_kmh","acceleration_0_100_s",
+  "torque_nm","seats","number_of_cells","towing_capacity_kg",
+  "cargo_volume_l","length_mm","width_mm","height_mm"
+)
+
+present_cols <- intersect(cols_to_numeric, names(data))
+# --- Coerce numerics (your friend already did some; this just standardizes everything) ---
+df <- df %>%
+  mutate(across(all_of(present_cols), clean_num))
+
+
+pretty_names <- c(
+  battery_capacity_kWh   = "Battery Capacity (kWh)",
+  efficiency_wh_per_km   = "Efficiency (Wh/km)",
+  range_km               = "Range (km)",
+  fast_charging_power_kw_dc = "Fast Charging Power (kW DC)",
+  top_speed_kmh          = "Top Speed (km/h)",
+  acceleration_0_100_s   = "Acceleration 0–100 (s)",
+  torque_nm              = "Torque (Nm)",
+  seats                  = "Seats",
+  number_of_cells        = "Number of Cells",
+  towing_capacity_kg     = "Towing Capacity (kg)",
+  cargo_volume_l         = "Cargo Volume (L)",
+  length_mm              = "Length (mm)",
+  width_mm               = "Width (mm)",
+  height_mm              = "Height (mm)"
+)
+
+
+pretty_names <- c(
+  battery_capacity_kWh   = "Battery Capacity (kWh)",
+  efficiency_wh_per_km   = "Efficiency (Wh/km)",
+  range_km               = "Range (km)",
+  fast_charging_power_kw_dc = "Fast Charging Power (kW DC)",
+  top_speed_kmh          = "Top Speed (km/h)",
+  acceleration_0_100_s   = "Acceleration 0–100 (s)",
+  torque_nm              = "Torque (Nm)",
+  seats                  = "Seats",
+  number_of_cells        = "Number of Cells",
+  towing_capacity_kg     = "Towing Capacity (kg)",
+  cargo_volume_l         = "Cargo Volume (L)",
+  length_mm              = "Length (mm)",
+  width_mm               = "Width (mm)",
+  height_mm              = "Height (mm)"
+)
+
+present_vars <- intersect(names(pretty_names), names(df))
+pretty_present <- pretty_names[present_vars]
+
+df[present_vars] <- lapply(df[present_vars], clean_num)
+
+summ_list <- lapply(present_vars, function(v) {
+  x <- df[[v]]
+  data.frame(
+    Variable = unname(pretty_present[v]),
+    Mean     = round(mean(x, na.rm = TRUE), 2),
+    Variance = round(var(x,  na.rm = TRUE), 2),
+    SD       = round(sd(x,   na.rm = TRUE), 2),
+    N        = sum(!is.na(x)),
+    stringsAsFactors = FALSE
+  )
+})
+
+summ_tidy <- dplyr::bind_rows(summ_list)
+
+summ_tidy <- summ_tidy %>%
+  dplyr::arrange(match(Variable, unname(pretty_present)))
+
+print(summ_tidy)
+
+print(
+  xtable::xtable(
+    summ_tidy,
+    caption = "Summary Statistics for Electric Vehicle Technical Characteristics (after adjustments)",
+    label   = "tab:ev_summary_adjusted",
+    align   = c("l","l","r","r","r","r")
+  ),
+  include.rownames = FALSE,
+  booktabs = TRUE,
+  sanitize.text.function = identity
+)
+
+quick <- df %>%
+  dplyr::summarise(
+    towing_mean = mean(towing_capacity_kg, na.rm = TRUE),
+    towing_var  = var(towing_capacity_kg,  na.rm = TRUE),
+    cargo_mean  = mean(cargo_volume_l,     na.rm = TRUE),
+    cargo_var   = var(cargo_volume_l,      na.rm = TRUE)
+  )
+print(quick)
+
+
+
+library(dplyr)
+library(xtable)
+
+# define pretty variable names (adjust if needed)
+pretty_names <- c(
+  battery_capacity_kWh   = "Battery Capacity (kWh)",
+  efficiency_wh_per_km   = "Efficiency (Wh/km)",
+  range_km               = "Range (km)",
+  fast_charging_power_kw_dc = "Fast Charging Power (kW DC)",
+  top_speed_kmh          = "Top Speed (km/h)",
+  acceleration_0_100_s   = "Acceleration 0–100 (s)",
+  torque_nm              = "Torque (Nm)",
+  seats                  = "Seats",
+  number_of_cells        = "Number of Cells",
+  towing_capacity_kg     = "Towing Capacity (kg)",
+  cargo_volume_l         = "Cargo Volume (L)",
+  length_mm              = "Length (mm)",
+  width_mm               = "Width (mm)",
+  height_mm              = "Height (mm)"
+)
+
+present_cols <- intersect(names(pretty_names), names(df))
+pretty_present <- pretty_names[present_cols]
+
+summ_tidy <- lapply(present_cols, function(v) {
+  x <- df[[v]]
+  data.frame(
+    Variable = unname(pretty_present[v]),
+    Mean     = round(mean(x, na.rm = TRUE), 2),
+    Variance = round(var(x,  na.rm = TRUE), 2),
+    stringsAsFactors = FALSE
+  )
+}) %>%
+  bind_rows() %>%
+  mutate(Variable = factor(Variable, levels = unname(pretty_present))) %>%
+  arrange(Variable)
+
+print(summ_tidy)
+
+print(
+  xtable(
+    summ_tidy,
+    caption = "Summary Statistics for Electric Vehicle Technical Characteristics (Mean and Variance)",
+    label   = "tab:ev_summary_meanvar",
+    align   = c("l","l","r","r")
+  ),
+  include.rownames = FALSE,
+  booktabs = TRUE,
+  sanitize.text.function = identity
+)
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

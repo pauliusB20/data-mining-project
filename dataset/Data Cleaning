@@ -1,13 +1,31 @@
+###############
+# DM project
+# Data cleaning + exploratory analysis
+###############
+# Packages---------
+
+pkgs <- c("RKaggle","mvoutlier", "dplyr", "ggplot2", "car", "caret")
+
+to_install <- pkgs[!pkgs %in% installed.packages()[, "Package"]]
+if (length(to_install) > 0) install.packages(to_install, quiet = TRUE)
+
+# librraies used
+library(mvoutlier)
+library(dplyr)
+library(ggplot2)
+library(RKaggle)
+library(car)
+library(caret)
+
 # Loading data -------
 data<-RKaggle::get_dataset("urvishahir/electric-vehicle-specifications-dataset-2025")
 summary(data)
 str(data)
 
-# Recoding towing capacity
-data$towing_capacity_kg[data$towing_capacity_kg == 0] <- NA 
+# Setting seed -----
+set.seed(123)
 
 # Recoding cargo and towing capacity 
-library(dplyr)
 data <- data %>%
   mutate(cargo_volume_l = case_when(cargo_volume_l == "10 Banana Boxes" ~ "526", #using manufacturers' data
                                     cargo_volume_l == "13 Banana Boxes" ~ "645",
@@ -27,57 +45,95 @@ sort(NA_perc, decreasing = TRUE) #number of cells - 42%, towing cap. - 28%
 (sum(is.na(data)) / (nrow(data) * ncol(data))) * 100
 # 3.2% NA's
 
+# Box plots for all numeric variables --------
+numeric_data <- data[, sapply(data, is.numeric)]
 
-# Mahalanoblis distance for outlier detection ----------
-library(mvoutlier)
-data_no_na <- na.omit(data[, !(names(data) %in% c("number_of_cells",
-                          "seats", "towing_capacity_kg"))])
+# Ggplot
+data_long <- numeric_data[,-5] %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
 
+ggplot(data_long, aes(y = value, x = "", fill = variable)) +
+  geom_boxplot(outlier.size = 0.8) +
+  facet_wrap(~ variable, scales = "free", ncol = 4) +
+  theme_classic() +
+  labs(title = "Boxplots of Explanatory Variables", y = "Value")+
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("boxplots_explanatory.png", width = 10, height = 8, units = "in", dpi = 300)
+
+# Histograms
+ggplot(data_long, aes(x = value, fill = variable)) +
+  geom_histogram(bins=15, color = "black") +
+  facet_wrap(~ variable, scales = "free", ncol = 3) +
+  theme_classic() +
+  labs(title = "Histograms of Numeric Variables",
+       x = "Value", y = "Count") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("hist_explanatory.png", width = 10, height = 8, units = "in", dpi = 300)
+
+
+# Tranformed data ---------
+transformed_data <- numeric_data %>%
+  mutate(across(c(acceleration_0_100_s, cargo_volume_l,
+                  fast_charging_power_kw_dc, top_speed_kmh,torque_nm), 
+                ~ log(.),
+                .names = "log_{.col}"))
+
+data_long_trans <- transformed_data[,16:19] %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value")
+
+
+# Ggplot
+ggplot(data_long_trans, aes(y = value, x = "", fill = variable)) +
+  geom_boxplot(outlier.size = 0.8) +
+  facet_wrap(~ variable, scales = "free", ncol = 2) +
+  theme_classic() +
+  labs(title = "Boxplots of Log Transformed Variables", y = "Value")+
+theme(legend.position = "none",
+      plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("log_boxplots.png", width = 10, height = 8, units = "in", dpi = 300)
+
+
+# Histograms
+ggplot(data_long_trans, aes(x = value, fill = variable)) +
+  geom_histogram(bins=15, color = "black") +
+  facet_wrap(~ variable, scales = "free", ncol = 2) +
+  theme_classic() +
+  labs(title = "Histograms of Log Transformed Variables",
+       x = "Value", y = "Count") +
+  theme(legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("log_hist.png", width = 10, height = 8, units = "in", dpi = 300)
+
+
+
+# Removing NA's and low variance variables ------
+data_cleaned <- na.omit(data[, !(names(data) %in% c("number_of_cells", "model",
+                                                    "seats", "towing_capacity_kg", "battery_type",
+                                                    "fast_charge_port","source_url"))])
 # variable "car seat" was removed due to low variance
 # tow capacity and cargo was removed due to NA's
 
-numeric_data_no_na <- data_no_na[, sapply(data_no_na, is.numeric)]
+# Miscellaneous ------
 
-results <- aq.plot(numeric_data_no_na)  # plots and flags outliers
+# Mahalanoblis distance for outlier detection ----------
+numeric_data_cleaned <- data_cleaned[, sapply(data_cleaned, is.numeric)]
 
-outliers_df <- data_no_na %>%
-  filter(results$outliers) # 160 obs. are outliers?
+results <- aq.plot(numeric_data_cleaned)  # plots and flags outliers
+results
+outliers_df <- data_cleaned %>%
+  filter(results$outliers) # 161 obs. are outliers?
 
-# Box plots for all numeric variables --------
-#windows(width = 10, height = 6)
-par(mar = c(4, 4, 4, 2)) 
-boxplot(numeric_data_no_na[,-9],
-        las = 2,
-        cex.axis = 0.7)
-
-boxplot(numeric_data_no_na$length_mm)
-boxplot(numeric_data_no_na$cargo_volume_l) #skewed
-boxplot(data$top_speed_kmh)
-boxplot(data$acceleration_0_100_s)
-boxplot(data$battery_capacity_kWh)
-boxplot(data$number_of_cells) #very skewed data
-boxplot(data$torque_nm)
-
-
-# Character variables -----------
-table(data$car_body_type) 
-table(data$segment)
-table(data$drivetrain)
-
-table (data$fast_charge_port) #useless
-table(data$battery_type) #useless
-
-
-# Checking zero variance ------
-library(caret)
-zero_var <- nearZeroVar(numeric_data, saveMetrics = TRUE) # none
+# Checking (near) zero variance -------
+zero_var <- nearZeroVar(numeric_data_cleaned, saveMetrics = TRUE) # none
 zero_var
 
+# Correlation -------
+cor(numeric_data_cleaned)
 
-# Normality check for Y (others)? ---------
-hist(data$efficiency_wh_per_km) #skewed
-
-# Q-Q plot
-qqnorm(data$efficiency_wh_per_km)
-qqline(data$efficiency_wh_per_km, col = "red")
-# transformation needed (for regression) - Box-Cox/log
+vif(lm(efficiency_wh_per_km ~ ., data=numeric_data_cleaned))

@@ -113,11 +113,21 @@ ggsave("log_hist.png", width = 10, height = 8, units = "in", dpi = 300)
 
 
 # Removing NA's and low variance variables ------
-data_cleaned <- na.omit(data[, !(names(data) %in% c("number_of_cells", "model",
+
+data_cleaned <- data[, !(names(data) %in% c("number_of_cells", "model",
                                                     "seats", "towing_capacity_kg", "battery_type",
-                                                    "fast_charge_port","source_url"))])
+                                                    "fast_charge_port","source_url"))]
+
 # variable "car seat" was removed due to low variance
 # tow capacity and cargo was removed due to NA's
+
+# Tranformed variables  ---------
+data_cleaned <- data_cleaned %>%
+  mutate(across(c(acceleration_0_100_s, cargo_volume_l,
+                  fast_charging_power_kw_dc, top_speed_kmh,torque_nm), 
+                ~ log(.),
+                .names = "log_{.col}"))
+
 
 # Miscellaneous ------
 

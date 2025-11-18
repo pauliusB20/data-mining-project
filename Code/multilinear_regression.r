@@ -33,6 +33,60 @@ display_metric_results <- function(result_type, y, y_hat) {
     )
 }
 
+create_row_plot <- function(dataset, predictor_name) {
+    aes <- aes(
+        y = efficiency_wh_per_km
+    )
+    if (predictor_name == "battery_capacity_kWh") {
+        aes <- modifyList(
+            aes,
+            aes(x = battery_capacity_kWh)
+        )
+    } else if (predictor_name == "height_nm") {
+        aes <- modifyList(
+            aes,
+            aes(x = height_nm)
+        )
+    } else if (predictor_name == "width_nm") {
+        aes <- modifyList(
+            aes,
+            aes(x = width_nm)
+        )
+    }
+    
+    p1 <- ggplot(
+        dataset, 
+        aes
+        ) + 
+        geom_point() +
+        geom_smooth(method = "lm") +
+        xlab(predictor_name) +
+        ylab("Efficiency WH/km (Original)")
+
+
+    p2 <- ggplot(
+        dataset, 
+        aes(
+            x = battery_capacity_kWh, 
+            y = y_hat
+        )) + 
+        geom_point() +
+        geom_smooth(method = "lm") +
+        xlab(predictor_name) +
+        ylab("Efficiency WH/km (Prediction)")
+        
+
+    grid.arrange(
+        p1, 
+        p2, 
+        ncol = 2, 
+        top = paste(
+            predictor_name, 
+            " and Efficiency WH/km regression"
+        )
+    )
+}
+
 # TODO
 # main <- function() {    
    
@@ -122,35 +176,6 @@ dataset["y_hat"] <- dataset_pred$response
 
 print("Printing results")
 pdf("Code/mlr_results_1.pdf")
-p1 <- ggplot(
-    dataset, 
-    aes(
-        x = battery_capacity_kWh, 
-        y = efficiency_wh_per_km
-    )) + 
-    geom_point() +
-    geom_smooth(method = "lm") +
-    xlab("Battery Capacity") +
-    ylab("Efficiency WH/km (Original)")
-
-
-p2 <- ggplot(
-    dataset, 
-    aes(
-        x = battery_capacity_kWh, 
-        y = y_hat
-    )) + 
-    geom_point() +
-    geom_smooth(method = "lm") +
-    xlab("Battery Capacity") +
-    ylab("Efficiency WH/km (Prediction)")
-    
-
-grid.arrange(
-    p1, 
-    p2, 
-    ncol = 2, 
-    top = "Battery Capacity and Efficiency WH/km regression"
-)
+create_row_plot(dataset, "battery_capacity_kWh")
 
 print("DONE")

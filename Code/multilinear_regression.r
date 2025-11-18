@@ -42,15 +42,15 @@ create_row_plot <- function(dataset, predictor_name) {
             aes,
             aes(x = battery_capacity_kWh)
         )
-    } else if (predictor_name == "height_nm") {
+    } else if (predictor_name == "height_mm") {
         aes <- modifyList(
             aes,
-            aes(x = height_nm)
+            aes(x = height_mm)
         )
-    } else if (predictor_name == "width_nm") {
+    } else if (predictor_name == "width_mm") {
         aes <- modifyList(
             aes,
-            aes(x = width_nm)
+            aes(x = width_mm)
         )
     }
     
@@ -177,5 +177,7 @@ dataset["y_hat"] <- dataset_pred$response
 print("Printing results")
 pdf("Code/mlr_results_1.pdf")
 create_row_plot(dataset, "battery_capacity_kWh")
+create_row_plot(dataset, "height_mm")
+create_row_plot(dataset, "width_mm")
 
 print("DONE")

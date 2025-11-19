@@ -126,13 +126,21 @@ dataset <- na_to_zero(dataset)
 print("Running linear regression")
 # 1. pick predictors:
 # battery_capacity, height_mm, length_mm
+# predictors <- c(
+#     "battery_capacity_kWh",
+#     "width_mm",
+#     "height_mm", 
+#     "length_mm",
+#     "torque_nm",
+#     "top_speed_kmh"
+# )
 predictors <- c(
     "battery_capacity_kWh",
     "width_mm",
     "height_mm", 
     "length_mm",
-    "torque_nm",
-    "top_speed_kmh"
+    "log_torque_nm",
+    "log_top_speed_kmh" 
 )
 
 # analyzing model summary
@@ -159,14 +167,24 @@ print(
 print("Performing MLR model training")
 # using training data
 # for analysis
+# mlr_model <- lm(
+#     efficiency_wh_per_km ~ 
+#     battery_capacity_kWh + 
+#     width_mm +
+#     height_mm + 
+#     length_mm +
+#     torque_nm +
+#     top_speed_kmh, 
+#     data = dataset_train
+# )
 mlr_model <- lm(
     efficiency_wh_per_km ~ 
     battery_capacity_kWh + 
     width_mm +
     height_mm + 
     length_mm +
-    torque_nm +
-    top_speed_kmh, 
+    log_torque_nm +
+    log_top_speed_kmh, 
     data = dataset_train
 )
 summary(mlr_model)
@@ -200,7 +218,7 @@ display_metric_results(
 )
 
 png(
-    "Code/mlr_results.png", 
+    "Code/mlr_results_log.png", 
     height = PLOT_HEIGHT,
     width = PLOT_WIDTH
 ) 

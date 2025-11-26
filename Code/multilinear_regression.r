@@ -21,12 +21,13 @@ library(caret)
 
 PLOT_WIDTH <- 1024
 PLOT_HEIGHT <- 1500
-PROJECT_PATH <- "practical_part/data-mining-project"
-DATASET_PATH <- paste(PROJECT_PATH, "dataset/data_cleaned.csv", sep="/")
-SCATTER_PLOT_PATH <- paste(PROJECT_PATH, "Code/mlr_scatter_plots.png", sep="/")
-QQ_SAVE_PATH <- paste(PROJECT_PATH, "Code/mlr_results_qq_error.png", sep="/")
-QUANTILE_REG_SAVE_PATH <- paste(PROJECT_PATH, "Code/qr_regression_results.png", sep="/")
-COOK_DISTANCE_PATH <- paste(PROJECT_PATH, "Code/mlr_cook_distance.png", sep="/")
+PROJECT_PATH <- ""
+SEP <- ""
+DATASET_PATH <- paste(PROJECT_PATH, "dataset/data_cleaned.csv", sep=SEP)
+SCATTER_PLOT_PATH <- paste(PROJECT_PATH, "Code/mlr_scatter_plots.png", sep=SEP)
+QQ_SAVE_PATH <- paste(PROJECT_PATH, "Code/mlr_results_qq_error.png", sep=SEP)
+QUANTILE_REG_SAVE_PATH <- paste(PROJECT_PATH, "Code/qr_regression_results.png", sep=SEP)
+COOK_DISTANCE_PATH <- paste(PROJECT_PATH, "Code/mlr_cook_distance.png", sep=SEP)
 
 fetch_data <- function(path) {
     return (read.csv(path))
@@ -282,13 +283,21 @@ p1 <- ggplot(
     dataset_train, 
     aes(volume_mm,log_efficiency_wh_per_km)) + 
     geom_point() +
-    geom_abline(intercept=coef(qr_model)[1], slope=coef(qr_model)[2])
+    geom_abline(
+        intercept = coef(qr_model)[1] + coef(qr_model)[3] * mean(dataset_train$log_acceleration_0_100_s),
+        slope     = coef(qr_model)[2],
+        color = "red"
+    )
 
 p2 <- ggplot(
     dataset_train, 
     aes(log_acceleration_0_100_s,log_efficiency_wh_per_km)) + 
     geom_point() +
-    geom_abline(intercept=coef(qr_model)[1], slope=coef(qr_model)[2])
+    geom_abline(
+        intercept = coef(qr_model)[1] + coef(qr_model)[2] * mean(dataset_train$volume_mm),
+        slope     = coef(qr_model)[3],
+        color = "blue"
+    )
 
 grid.arrange(p1, p2)
 

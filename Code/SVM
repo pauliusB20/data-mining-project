@@ -1,0 +1,363 @@
+###################
+# SVR fitting 
+##################
+library(caret)
+data <- read.csv("data_cleaned.csv")
+
+# Transforming DV
+data$log_efficiency_wh_per_km <- log(data$efficiency_wh_per_km)
+
+# Changing width/height/length to volume
+library(dplyr)
+data <- data %>%
+  mutate(
+    height_m = height_mm / 1000,
+    width_m  = width_mm  / 1000,
+    length_m = length_mm / 1000,
+    volume_mm = height_m * width_m * length_m
+  ) %>%
+  select(-height_mm, -width_mm, -length_mm, 
+         -height_m, -width_m, -length_m)
+
+# Removing unnecessary variables
+to_keep <- c("torque_nm", "acceleration_0_100_s","battery_capacity_kWh", 
+             "volume_mm", "log_efficiency_wh_per_km")
+
+cleaned <- data[, (names(data) %in% to_keep)]
+cleaned <- na.omit(cleaned)
+
+# Correlation -----------
+target_col <- which(names(cleaned) == "log_efficiency_wh_per_km") 
+
+corelations <- cor(cleaned[, -target_col]) 
+
+corr_high <- findCorrelation(corelations, cutoff = .8) #none
+
+# Checking for (near) Zero var
+nzv <- nearZeroVar(cleaned[, -target_col], saveMetrics = TRUE) #none
+
+# Train-test split ----
+# 80/20
+
+set.seed(123) #to ensure comparability 
+idx_split <- createDataPartition(cleaned$log_efficiency_wh_per_km, p = .80, list = FALSE)
+train <- cleaned[idx_split, ]
+test <- cleaned[-idx_split, ]
+
+# Fitting SVR --------------
+
+pre_procesing <- c("center", "scale")
+
+#re-sampling technique to use - repeated 10-fold CV; number of repetitions - 5
+ctrl10 <- trainControl(method = "repeatedcv", number = 10, repeats = 5) 
+
+# First model (Radial) ------
+
+set.seed(123)
+SVR <- train(log_efficiency_wh_per_km ~ ., data = train,
+             method = "svmRadial", #radial kernel
+             preProcess = pre_procesing, 
+             trControl = ctrl10,
+             tuneLength = 10) #grid search
+# very long run-time with repeated CV
+SVR$finalModel
+SVR$bestTune #Provides tunning parameters resulting in best metrics - sigma 0.3745047, C 8
+# sigma - controls width of Gausian function
+# small - points' influence is localized (potential overfitting), large - wider (potential underfitting)
+# train() fits sigma based on distribution of pairwise distance between points 
+# but it is a tunning parameter
+
+SVR$results #Evaluation metrics per combination of tuning parameter
+# R-squared of training data - 0.7465829
+
+# Prediction 
+radial_pred <- predict(SVR, newdata = test)
+performance_metrict_radial <- postResample(radial_pred, test$log_efficiency_wh_per_km)
+# R-squared of test data - 0.78517850
+
+# Specifying grid search for more precise tuning ---------
+library(kernlab) 
+set.seed(123)
+sigma_est <- sigest(log_efficiency_wh_per_km ~ ., data = train) 
+#gives distribution of reasonable sigma based on the data
+sigma_grid <- seq(from = sigma_est[1], to = sigma_est[3], length.out = 10)
+
+grid <- expand.grid(
+C = c(0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128), # trade-off for smoothing vs fitting
+sigma = c(sigma_grid, 0.3745047)) #variance/kernell width; 0.3745047 - from previous model 
+
+set.seed(123)
+SVR_grid <- train(log_efficiency_wh_per_km ~ ., data = train,
+             method = "svmRadial",
+             preProcess = pre_procesing, 
+             trControl = ctrl10,
+             tuneGrid = grid)
+
+SVR_grid$results
+SVR_grid$bestTune #sigma 0.1247298 C 128
+# C varies with repeated sampling, but R_squared does not vary much - 0.7631622
+
+# Predicting test sample
+radial_pred_1 <- predict(SVR_grid, newdata = test)
+performance_metrict_radial_1 <- postResample(radial_pred_1, test$log_efficiency_wh_per_km)
+
+# Worse test R-squared 0.7537805, and higher RMSE/MAE
+
+# Residual check - comparing residuals vs fitted ------
+residuals_SVR <- test$log_efficiency_wh_per_km - radial_pred
+
+plot(radial_pred, residuals_SVR,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+
+abline(h = 0, col = "red") 
+#no structure - good
+
+hist(residuals_SVR, main = "Histogram of Residuals") #quite normal looking, one tail is more fat
+qqnorm(residuals_SVR)
+qqline(residuals_SVR, col = "red") #some outliers
+
+#model does not require normality, but the plots show that some points are poorly predicted
+
+# True vs predicted
+df_radial <- data.frame(True = test$log_efficiency_wh_per_km, Predicted = radial_pred)
+
+radial_pred_true <- ggplot(df_radial, aes(x = True, y = Predicted)) +
+  geom_point(color = "blue") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "Predicted vs Observed",
+       x = "Observed log_efficiency",
+       y = "Predicted log_efficiency ") +
+  theme_minimal()
+
+radial_pred_true
+
+# Influence points --
+std_res <- residuals_SVR / sd(residuals_SVR) #standartised residuals
+influential_point <- which(abs(std_res) > 3)
+influential_point #one
+
+# For tunned model -----------
+residuals_SVR_1 <- test$log_efficiency_wh_per_km - radial_pred_1
+
+plot(radial_pred_1, residuals_SVR_1,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+
+abline(h = 0, col = "red") 
+#no structure - good
+
+hist(residuals_SVR_1, main = "Histogram of Residuals") #flatter tails
+qqnorm(residuals_SVR_1)
+qqline(residuals_SVR_1, col = "red") #less pronounced outliers
+
+# Influence points --
+std_res <- residuals_SVR_1 / sd(residuals_SVR_1) #standartised residuals
+influential_point <- which(abs(std_res) > 3)
+influential_point #none
+
+############################
+# Linear kernel ------
+grid_linear <- expand.grid(
+  C = c(0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128))
+
+set.seed(123)
+SVR_linear <- train(log_efficiency_wh_per_km ~ ., data = train,
+             method = "svmLinear", #linear kernel
+             preProcess = pre_procesing, 
+             trControl = ctrl10,
+             tuneGrid = grid_linear) 
+SVR_linear$bestTune # C 4
+SVR_linear$results #not much difference
+
+# Predicting
+linear_pred <- predict(SVR_linear, newdata = test)
+performance_metrict_linear <- postResample(linear_pred, test$log_efficiency_wh_per_km)
+
+# suprisingly not that much worse than radial
+
+# Residual investigation
+residuals_linear <- test$log_efficiency_wh_per_km - linear_pred
+
+plot(linear_pred, residuals_linear,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+
+abline(h = 0, col = "red") 
+# No structure
+
+hist(residuals_linear, main = "Histogram of Residuals") # more skewed, some clear outliers
+qqnorm(residuals_linear)
+qqline(residuals_linear, col = "red") #not that strongly deviates from normal
+
+# Influential points ----
+std_res_linear <- residuals_linear / sd(residuals_linear) #standartised residuals
+influential_point_linear <- which(abs(std_res_linear) > 3)
+influential_point_linear #two
+
+# So model overall appears to be less well fitted
+
+############
+# Polynomial kernel ---
+# more tuning parameters, coarse grid
+grid_poly <- expand.grid(
+  C = c(0.5, 1, 2),
+  degree = c(2, 3),
+  scale = c(0.01, 0.1))
+
+library("tictoc") #for timing run time
+
+set.seed(123)
+
+tic("SVR poly 1")    # record start
+SVR_poly <- train(log_efficiency_wh_per_km ~ ., data = train,
+             method = "svmPoly", #polynomial kernel
+             preProcess = pre_procesing, 
+             trControl = ctrl10,
+             tuneGrid = grid_poly) 
+
+toc(log = TRUE) #SVR poly 1: 12.23 sec elapsed
+
+SVR_poly$bestTune # Best degree 3, scale 0.1, C 2
+SVR_poly$results #R-squared 0.7289140
+
+# Refining around the best values
+grid_poly_2 <- expand.grid(
+  C = c(0.5, 1, 2, 5),
+  degree = c(2, 3),
+  scale = c(0.05, 0.08, 0.1, 0.15, 0.2))
+
+set.seed(123)
+tic("SVR poly 2")
+SVR_poly_2 <- train(log_efficiency_wh_per_km ~ ., data = train,
+                  method = "svmPoly", #polynomial kernel
+                  preProcess = pre_procesing, 
+                  trControl = ctrl10,
+                  tuneGrid = grid_poly_2) 
+toc(log = TRUE) #SVR poly 2: 35.89 sec elapsed
+SVR_poly_2$bestTune #degree = 3, scale = 0.1 and C = 5
+
+SVR_poly_2$results # R-squared 0.7324583
+plot(SVR_poly)
+
+# Refining further
+grid_poly_3 <- expand.grid(
+C = c(2, 5, 8, 10), #expanding, as it seem that the edge one if the best each time
+degree = c(3), #does not change      
+scale = c(0.05, 0.1, 0.2))
+
+set.seed(123)
+tic("SVR poly 3")
+
+#using paralel computing
+library(doParallel)
+cl <- makeCluster(detectCores() - 1)
+registerDoParallel(cl)
+
+SVR_poly_3 <- train(log_efficiency_wh_per_km ~ ., data = train,
+                  method = "svmPoly", #polynomial kernel
+                  preProcess = pre_procesing, 
+                  trControl = ctrl10,
+                  tuneGrid = grid_poly_3) 
+
+stopCluster(cl)
+
+toc(log = TRUE) #SVR poly 3: 21.7 sec elapsed
+SVR_poly_3$bestTune #degree = 3, scale = 0.1 and C = 5
+# SAME MODEL
+
+
+# Double-checking with wider grid
+grid_poly_4 <- expand.grid(
+  C = c(2, 5, 10, 20), #expanding, as it seem that the edge one if the best each time
+  degree = c(3), #does not change      
+  scale = c(0.05, 0.1, 0.5, 0.1))
+
+set.seed(123)
+tic("SVR poly 4")
+
+cl <- makeCluster(detectCores() - 1)
+registerDoParallel(cl)
+
+SVR_poly_4 <- train(log_efficiency_wh_per_km ~ ., data = train,
+                    method = "svmPoly", #polynomial kernel
+                    preProcess = pre_procesing, 
+                    trControl = ctrl10,
+                    tuneGrid = grid_poly_4) 
+
+stopCluster(cl)
+
+toc(log = TRUE) #SVR poly 4: 30.77 sec elapsed
+SVR_poly_4$bestTune #degree = 3, scale = 0.1 and C = 5
+#Same
+SVR_poly_4$results #R-squared: 0.7324583
+#----------
+
+# Prediction 
+poly_pred <- predict(SVR_poly_4, newdata = test)
+performance_metrict_poly <- postResample(poly_pred, test$log_efficiency_wh_per_km)
+performance_metrict_poly
+# performs sligthly worse than radial kernel, but batter than linear
+
+# Residuals
+residuals_poly <- test$log_efficiency_wh_per_km - poly_pred
+
+plot(poly_pred, residuals_poly,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs Fitted")
+
+abline(h = 0, col = "red") 
+#no structure, but a few larger residuals
+
+hist(residuals_poly, main = "Histogram of Residuals") # Not very normal looking, quite skewed
+
+qqnorm(residuals_poly)
+qqline(residuals_poly, col = "red") # clar deviations in one tail
+
+
+# Influence points
+std_res <- residuals_poly / sd(residuals_poly) #standartised residuals
+influential_point <- which(abs(std_res) > 3)
+influential_point #1 point
+
+# TRue vs predicted 
+df_poly <- data.frame(True = test$log_efficiency_wh_per_km, Predicted = poly_pred)
+
+poly_pred_true <- ggplot(df_poly, aes(x = True, y = Predicted)) +
+  geom_point(color = "blue") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "Predicted vs Observed",
+       x = "Observed log_efficiency",
+       y = "Predicted log_efficiency ") +
+  theme_minimal()
+
+poly_pred_true
+# more spread out than for radial kernell, but only slightly
+
+# Kernell performance table -------
+results <- rbind(
+  SVR_Radial = performance_metrict_radial,
+  SVR_Radial_tunned = performance_metrict_radial_1,
+  SVR_Linear = performance_metrict_linear,
+  SVR_Polynomial = performance_metrict_poly)
+
+results
+
+# Based on RMSE/MAE, Radial (not finely-tuned) model is the best at prediction
+# residuals appear to be also more normal, but influenced by some outliers
+
+# Important to note that normality is not required for SVR residuals; so it's only used
+# for comparison between models
+# Skewed residuals might indicate that some non-linearities are not captured
+
+# Fitted vs true graphs also show very comparable performance of polynomial vs radial (and for radial tunned)
+
+# Additional plots and variable selection
+plot(SVR)
+varImp(SVR) #volume, capacity - most, acceleration - least important
+
+plot(varImp(SVR))

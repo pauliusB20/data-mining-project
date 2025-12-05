@@ -15,9 +15,7 @@ data <- data %>%
     width_m  = width_mm  / 1000,
     length_m = length_mm / 1000,
     volume_mm = height_m * width_m * length_m
-  ) %>%
-  select(-height_mm, -width_mm, -length_mm, 
-         -height_m, -width_m, -length_m)
+  )
 
 # Removing unnecessary variables
 to_keep <- c("torque_nm", "acceleration_0_100_s","battery_capacity_kWh", 
@@ -341,20 +339,31 @@ poly_pred_true
 # Kernell performance table -------
 results <- rbind(
   SVR_Radial = performance_metrict_radial,
-  SVR_Radial_tunned = performance_metrict_radial_1,
   SVR_Linear = performance_metrict_linear,
   SVR_Polynomial = performance_metrict_poly)
 
-results
+# LaTex table
+comparison_table <- results %>%
+  kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "Performance Metrics for SVM models",
+    col.names = c("Model", "RMSE", "R-squared", "MAE"),
+    #row.names = c("Radial Basis", "Linear", "Polynomial (d=3)"),
+    digits = 4
+  ) %>%
+  kable_styling(latex_options = c("hold_position", "scale_down"))
 
-# Based on RMSE/MAE, Radial (not finely-tuned) model is the best at prediction
-# residuals appear to be also more normal, but influenced by some outliers
+comparison_table
 
-# Important to note that normality is not required for SVR residuals; so it's only used
+# Based on RMSE/MAE, Radial model is the best at prediction
+# residuals appear to be also more normal
+
+# normality is not required for SVR residuals; so it's only used
 # for comparison between models
 # Skewed residuals might indicate that some non-linearities are not captured
 
-# Fitted vs true graphs also show very comparable performance of polynomial vs radial (and for radial tunned)
+# Fitted vs true graphs also show very comparable performance of polynomial vs radial
 
 # Additional plots and variable selection
 plot(SVR)

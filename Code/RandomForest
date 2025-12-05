@@ -1,0 +1,89 @@
+Random FOREST
+
+
+
+# 1. Read and clean ----
+df  <- read.csv("data_cleaned.csv", sep = ",", stringsAsFactors = FALSE)
+df_clean <- na.omit(df)
+
+
+# 2. Build modeling dataset (log transform target!) ----
+
+# Collect ALL numeric variables except the target
+numeric_vars <- df_clean %>%
+  dplyr::select(where(is.numeric), -efficiency_wh_per_km) %>%
+  names()
+
+df_model <- df_clean %>%
+  mutate(
+    efficiency_log = log(efficiency_wh_per_km)   # transformed target
+  ) %>%
+  dplyr::select(
+    efficiency_wh_per_km,     # original target for back-transformation
+    efficiency_log,           # log target for modeling
+    all_of(numeric_vars)      # ONLY NUMERIC predictors
+  )
+
+
+# 3. Train/test split ----
+set.seed(123)
+train_index <- createDataPartition(df_model$efficiency_log,
+                                   p = 0.8, list = FALSE)
+
+train <- df_model[train_index, ]
+test  <- df_model[-train_index, ]
+
+
+# 4. Random forest on log target using ONLY numeric predictors ----
+
+
+p <- length(numeric_vars)
+mtry_val <- max(1, floor(p / 3))
+
+
+
+rf_formula <- as.formula(
+  paste("efficiency_log ~", paste(numeric_vars, collapse = " + "))
+)
+
+set.seed(123)
+model_rf_log <- randomForest(
+  formula     = rf_formula,
+  data        = train,
+  ntree       = 100,
+  mtry        = mtry_val,
+  importance  = TRUE,
+  na.action   = na.roughfix
+)
+
+print(model_rf_log)
+
+
+# 5. Variable importance ----
+varImpPlot(model_rf_log,
+           main = "Variable Importance (log-transformed efficiency)")
+
+# 6. Predictions: stay on LOG scale ----
+pred_log <- predict(model_rf_log, newdata = test)
+
+# 7. Metrics on LOG scale ----
+rmse_log <- sqrt(mean((pred_log - test$efficiency_log)^2))
+mae_log  <- mean(abs(pred_log - test$efficiency_log))
+
+rmse_log
+mae_log
+
+results_log <- data.frame(
+  actual_log    = test$efficiency_log,
+  predicted_log = pred_log,
+  residual_log  = test$efficiency_log - pred_log
+)
+
+print(head(results_log))
+
+# --- Test R² on LOG scale ---
+ss_res_log <- sum((test$efficiency_log - pred_log)^2)
+ss_tot_log <- sum((test$efficiency_log - mean(test$efficiency_log))^2)
+
+r2_test_log <- 1 - ss_res_log / ss_tot_log
+r2_test_log

@@ -56,44 +56,54 @@ dataset <- dataset %>% select(-length_mm)
 dataset <- dataset %>% select(-range_km)
 dataset <- dataset %>% select(-cargo_volume_l)
 
+
+
 x <- model.matrix(log_efficiency_wh_per_km ~ ., data=dataset)[, -1]
 y <- log(dataset$log_efficiency_wh_per_km)
 
 # if alpha = 1, L1 norm applied - lasso regression
 # standardize is used due to different scale of predictors
-lasso_model <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
+
+print("Performing cross validation")
+lasso_cv_fit <- cv.glmnet(x, y, alpha = 1, standardize = TRUE)
+summary(lasso_cv_fit)
+
+print("Performing final model fit")
+lasso_model <- glmnet(
+  x, 
+  y, 
+  alpha = 1, 
+  lambda = lasso_cv_fit$lambda.min, 
+  standardize = TRUE
+)
 
 betas <- coef(lasso_model)
 betas
 
+print("Plotting variable importance")
 coef_df <- data.frame(
-  predictor = row.names(as.matrix(betas)),
+  variable = rownames(betas),
   coefficient = as.numeric(betas)
 )
-coef_df <- coef_df[coef_df$predictor != "(Intercept)", ]
+
+# Remove intercept and zero coefficients
+coef_df <- subset(coef_df, coefficient != 0 & variable != "(Intercept)")
+
+# Create importance metric
+coef_df$importance <- abs(coef_df$coefficient)
 
 
+png("Code/mlr_lasso_bar_plot.png")
+ggplot(coef_df, aes(x = reorder(variable, importance), y = importance)) +
+  geom_col() +
+  coord_flip() +
+  geom_col(fill = "darkgreen") +
+  labs(title = "LASSO Variable Importance for MLR",
+       x = "Variables",
+       y = "Variable Importance") +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 12)
+  )
 
-coef_min <- coef(lasso_model, s = "lambda.min")
-coef_min <- as.matrix(coef_min)
-coef_min <- coef_min[coef_min != 0, , drop = FALSE]      # keep non-zero
-coef_min <- coef_min[rownames(coef_min) != "(Intercept)", , drop = FALSE]
-vals <- abs(coef_min[, 1])
-names(vals) <- rownames(coef_min)
-vals <- sort(vals, decreasing = TRUE)
-
-
-png("Code/mlr_lasso_bar_plot.png", height=600)
-par(mar = c(5, 15, 4, 2))
-barplot(
-  vals,
-  horiz = TRUE,                 # flip the axes
-  las = 1,                      # make y-labels readable
-  xlab = "Variable Strength",
-  ylab = "",
-  main = "LASSO Predictor Strength",
-  col = "purple",
-  space = 3,
-  cex.names = 1.1
-)
-
+print("DONE")
